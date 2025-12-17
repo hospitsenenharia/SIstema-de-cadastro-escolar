@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Escolar Web</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root{
+  --azul:#1e40af;
+  --azul-escuro:#1e3a8a;
+  --cinza:#f1f5f9;
+}
+
+body{margin:0;font-family:Arial;background:var(--cinza)}
+
+/* SIDEBAR */
+#sidebar{
+  position:fixed;
+  top:0;left:0;
+  width:240px;height:100vh;
+  background:var(--azul);
+  color:#fff;
+  transition:.3s;
+}
+#sidebar.recolhido{width:70px}
+
+#sidebar h3{
+  padding:15px;
+  font-size:16px;
+}
+
+#sidebar a{
+  display:flex;
+  gap:10px;
+  padding:12px 15px;
+  color:#fff;
+  cursor:pointer;
+  text-decoration:none;
+}
+#sidebar a:hover{background:rgba(255,255,255,.15)}
+
+/* CONTEÚDO */
+#content{
+  margin-left:240px;
+  transition:.3s;
+}
+#content.expandido{margin-left:70px}
+
+header{
+  background:var(--azul-escuro);
+  color:#fff;
+  padding:15px;
+  display:flex;
+  align-items:center;
+  gap:15px;
+}
+header button{
+  background:none;
+  border:none;
+  color:#fff;
+  font-size:22px;
+  cursor:pointer;
+}
+
+main{padding:25px}
+
+section{display:none}
+.card{
+  background:#fff;
+  padding:20px;
+  border-radius:8px;
+}
+
+input,select,button{
+  padding:8px;
+  margin:5px 0;
+  width:100%;
+}
+button{cursor:pointer}
+
+/* LOGIN */
+#login{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <h3>📘 Escola</h3>
+  <a onclick="mostrar('listaAlunos')">📁 Alunos</a>
+  <a onclick="novoAluno()">➕ Novo aluno</a>
+  <a onclick="logout()">🚪 Sair</a>
+</div>
+
+<!-- CONTEÚDO -->
+<div id="content">
+
+<header>
+  <button onclick="toggleMenu()">☰</button>
+  <div>
+    <b>SISTEMA ESCOLAR WEB</b><br>
+    <small>Uso interno • Secretaria • Direção</small>
+  </div>
+</header>
+
+<main>
+
+<!-- LOGIN -->
+<section id="login" style="display:flex">
+<div class="card" style="max-width:350px;width:100%">
+  <h3>Login</h3>
+  <input id="email" placeholder="E-mail">
+  <input id="senha" type="password" placeholder="Senha">
+  <button onclick="login()">Entrar</button>
+</div>
+</section>
+
+<!-- LISTA -->
+<section id="listaAlunos">
+<div class="card">
+  <h3>📁 Alunos A–Z</h3>
+  <div id="lista"></div>
+</div>
+</section>
+
+<!-- FICHA -->
+<section id="fichaAluno">
+<div class="card">
+<h3>📄 Ficha do Aluno</h3>
+
+<input id="fa_matricula" placeholder="Matrícula">
+<input id="fa_nome" placeholder="Nome completo">
+<input id="fa_nascimento" type="date">
+<input id="fa_serie" placeholder="Série">
+<input id="fa_turma" placeholder="Turma">
+<input id="fa_turno" placeholder="Turno">
+<input id="fa_ano" placeholder="Ano letivo">
+
+<button onclick="salvarFicha()">💾 Salvar</button>
+<button onclick="mostrar('documentos')">📤 Documentos</button>
+<button onclick="gerarPDF()">📄 PDF</button>
+<button onclick="mostrar('listaAlunos')">⬅ Voltar</button>
+</div>
+</section>
+
+<!-- DOCUMENTOS -->
+<section id="documentos">
+<div class="card">
+<h3>📤 Documentos</h3>
+
+<select id="tipoDocumento">
+  <option value="rg">RG</option>
+  <option value="historico">Histórico</option>
+  <option value="residencia">Residência</option>
+</select>
+
+<input type="file" id="arquivo">
+<button onclick="uploadDocumento()">Enviar</button>
+
+<ul id="listaDocs"></ul>
+
+<button onclick="mostrar('fichaAluno')">⬅ Voltar</button>
+</div>
+</section>
+
+</main>
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+  "https://SUA_URL.supabase.co",
+  "SUA_CHAVE_PUBLICA"
+);
+
+let alunoId=null;
+const el=id=>document.getElementById(id);
+
+function mostrar(id){
+  document.querySelectorAll("section").forEach(s=>s.style.display="none");
+  el(id).style.display="block";
+}
+
+/* MENU */
+function toggleMenu(){
+  sidebar.classList.toggle("recolhido");
+  content.classList.toggle("expandido");
+}
+
+/* LOGIN */
+async function login(){
+  const {data,error}=await supabaseClient.auth.signInWithPassword({
+    email:email.value,password:senha.value
+  });
+  if(error){alert(error.message);return;}
+  mostrar("listaAlunos");
+  carregarAlunos();
+}
+
+/* LOGOUT */
+async function logout(){
+  await supabaseClient.auth.signOut();
+  location.reload();
+}
+
+/* ALUNOS */
+async function carregarAlunos(){
+  const {data}=await supabaseClient.from("alunos").select("*").order("nome");
+  lista.innerHTML=data.map(a=>
+    `<p onclick='abrir(${JSON.stringify(a)})'>📁 ${a.nome}</p>`
+  ).join("");
+}
+
+function novoAluno(){
+  alunoId=null;
+  document.querySelectorAll("#fichaAluno input").forEach(i=>i.value="");
+  mostrar("fichaAluno");
+}
+
+function abrir(a){
+  alunoId=a.id;
+  fa_matricula.value=a.matricula||"";
+  fa_nome.value=a.nome||"";
+  fa_nascimento.value=a.data_nascimento||"";
+  fa_serie.value=a.serie||"";
+  fa_turma.value=a.turma||"";
+  fa_turno.value=a.turno||"";
+  fa_ano.value=a.ano_letivo||"";
+  mostrar("fichaAluno");
+}
+
+async function salvarFicha(){
+  const dados={
+    matricula:fa_matricula.value,
+    nome:fa_nome.value,
+    data_nascimento:fa_nascimento.value,
+    serie:fa_serie.value,
+    turma:fa_turma.value,
+    turno:fa_turno.value,
+    ano_letivo:fa_ano.value
+  };
+  alunoId
+   ? await supabaseClient.from("alunos").update(dados).eq("id",alunoId)
+   : await supabaseClient.from("alunos").insert(dados);
+  alert("Salvo");
+  mostrar("listaAlunos");
+  carregarAlunos();
+}
+
+/* UPLOAD */
+async function uploadDocumento(){
+  const file=arquivo.files[0];
+  if(!file||!alunoId){alert("Erro");return;}
+  await supabaseClient.storage.from("documentos-alunos")
+   .upload(`${alunoId}/${tipoDocumento.value}_${file.name}`,file,{upsert:true});
+  listarDocs();
+}
+
+async function listarDocs(){
+  const {data}=await supabaseClient.storage.from("documentos-alunos").list(alunoId);
+  listaDocs.innerHTML=data.map(d=>`<li>${d.name}</li>`).join("");
+}
+
+/* PDF */
+function gerarPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF();
+  doc.text("GOVERNO DO ESTADO",10,10);
+  doc.text("ESCOLA ESTADUAL",10,18);
+  doc.text("Aluno: "+fa_nome.value,10,40);
+  doc.text("Assinatura: ____________________",10,80);
+  doc.save("ficha_aluno.pdf");
+}
+</script>
+
+</body>
+</html>
