@@ -39,7 +39,7 @@ button:hover{opacity:.9}
   <a onclick="mostrar('dashboard')">📊 Dashboard</a>
   <a onclick="mostrar('listaAlunos')">📁 Alunos</a>
   <a id="menuNovo" onclick="novoAluno()">➕ Novo aluno</a>
-  <a id="menuUsuarios" onclick="mostrar('usuariosAdmin')">👥 Usuários</a>
+  <a id="menuUsuarios" onclick="mostrar('usuariosAdmin'); listarUsuarios()">👥 Usuários</a>
   <a onclick="logout()">🚪 Sair</a>
 </aside>
 
@@ -68,10 +68,7 @@ button:hover{opacity:.9}
   <div class="card">
     <h3>📁 Alunos A–Z</h3>
     <div class="filtros">
-      <input id="busca" placeholder="Buscar nome/matrícula" oninput="filtrar()">
-      <input id="fSerie" placeholder="Série" oninput="filtrar()">
-      <input id="fTurma" placeholder="Turma" oninput="filtrar()">
-      <input id="fTurno" placeholder="Turno" oninput="filtrar()">
+      <input id="busca" placeholder="Buscar nome" oninput="filtrar()">
     </div>
     <div id="lista" class="lista"></div>
   </div>
@@ -83,7 +80,6 @@ button:hover{opacity:.9}
     <h3>📄 Ficha do Aluno</h3>
     <input id="fa_matricula" placeholder="Matrícula">
     <input id="fa_nome" placeholder="Nome">
-    <input id="fa_nascimento" type="date">
     <input id="fa_serie" placeholder="Série">
     <input id="fa_turma" placeholder="Turma">
     <input id="fa_turno" placeholder="Turno">
@@ -106,9 +102,10 @@ button:hover{opacity:.9}
 <script>
 /* CONFIG */
 const supabaseClient = supabase.createClient(
-  "SUA_SUPABASE_URL",
-  "SUA_ANON_PUBLIC_KEY"
+  "https://favcrovzeihwwrjltlzj.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdmNyb3Z6ZWlod3dyamx0bHpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MzYwMjMsImV4cCI6MjA4MTUxMjAyM30.1PpWyZSBBItxNPXP0WyeyZJuILH7SnU7xiMOH9UPXMo"
 );
+
 
 let perfil="", escola_id="", alunosCache=[], alunoAtual=null;
 
@@ -120,24 +117,45 @@ function mostrar(id){
 
 /* LOGIN */
 async function login(){
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: email.value,
-    password: senha.value
-  });
-  if(error) return alert(error.message);
+  try{
+    const emailVal = document.getElementById("email").value;
+    const senhaVal = document.getElementById("senha").value;
 
-  const { data:usuario } = await supabaseClient
-    .from("usuarios").select("*").eq("id",data.user.id).single();
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: emailVal,
+      password: senhaVal
+    });
 
-  perfil = usuario.perfil;
-  escola_id = usuario.escola_id;
+    if(error) throw error;
 
-  if(perfil!=="admin") document.getElementById("menuUsuarios").style.display="none";
-  if(perfil==="professor") document.getElementById("menuNovo").style.display="none";
+    const userId = data.user.id;
 
-  menu.style.display="block";
-  mostrar("dashboard");
-  carregarDashboard();
+    const { data: usuario, error: errUser } = await supabaseClient
+      .from("usuarios")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if(errUser || !usuario){
+      alert("Usuário não cadastrado na tabela usuarios");
+      await supabaseClient.auth.signOut();
+      return;
+    }
+
+    perfil = usuario.perfil;
+    escola_id = usuario.escola_id;
+
+    if(perfil !== "admin") document.getElementById("menuUsuarios").style.display="none";
+    if(perfil === "professor") document.getElementById("menuNovo").style.display="none";
+
+    document.getElementById("menu").style.display="block";
+
+    mostrar("listaAlunos");
+    carregarAlunos();
+
+  }catch(e){
+    alert("Erro no login: " + e.message);
+  }
 }
 
 /* LOGOUT */
@@ -149,12 +167,16 @@ async function logout(){
 /* DASHBOARD */
 async function carregarDashboard(){
   const { data } = await supabaseClient
-    .from("alunos").select("serie").eq("escola_id",escola_id);
+    .from("alunos")
+    .select("serie")
+    .eq("escola_id", escola_id);
+
+  if(!data) return;
 
   const map={};
   data.forEach(a=>map[a.serie]=(map[a.serie]||0)+1);
 
-  new Chart(grafSerie,{
+  new Chart(document.getElementById("grafSerie"),{
     type:"bar",
     data:{labels:Object.keys(map),datasets:[{data:Object.values(map)}]}
   });
@@ -163,21 +185,24 @@ async function carregarDashboard(){
 /* ALUNOS */
 async function carregarAlunos(){
   const { data } = await supabaseClient
-    .from("alunos").select("*").eq("escola_id",escola_id).order("nome");
-  alunosCache=data;
-  render(data);
+    .from("alunos")
+    .select("*")
+    .eq("escola_id", escola_id)
+    .order("nome");
+
+  alunosCache = data || [];
+  render(alunosCache);
 }
 
 function render(lista){
-  lista.innerHTML = lista.map(a =>
+  document.getElementById("lista").innerHTML = lista.map(a =>
     `<p onclick='abrir(${JSON.stringify(a)})'>📁 ${a.nome}</p>`
   ).join("");
 }
 
 function filtrar(){
-  render(alunosCache.filter(a =>
-    (!busca.value || a.nome.toLowerCase().includes(busca.value.toLowerCase()))
-  ));
+  const termo = document.getElementById("busca").value.toLowerCase();
+  render(alunosCache.filter(a => a.nome.toLowerCase().includes(termo)));
 }
 
 function novoAluno(){
@@ -210,7 +235,7 @@ async function salvarAluno(){
     ? await supabaseClient.from("alunos").update(dados).eq("id",alunoAtual)
     : await supabaseClient.from("alunos").insert(dados);
 
-  alert("Salvo");
+  alert("Aluno salvo");
   mostrar("listaAlunos");
   carregarAlunos();
 }
@@ -223,7 +248,8 @@ function gerarPDF(){
 /* USUÁRIOS */
 async function listarUsuarios(){
   const { data } = await supabaseClient.from("usuarios").select("*");
-  listaUsuarios.innerHTML=data.map(u=>`<p>${u.nome} (${u.perfil})</p>`).join("");
+  document.getElementById("listaUsuarios").innerHTML =
+    (data||[]).map(u=>`<p>${u.email} (${u.perfil})</p>`).join("");
 }
 </script>
 
