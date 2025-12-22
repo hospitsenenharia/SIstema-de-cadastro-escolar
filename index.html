@@ -2,39 +2,32 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sistema Escolar Web</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- SUPABASE V2 UMD -->
+<!-- SUPABASE -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
+<!-- CHART -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 <style>
-:root{
-  --azul:#1e3a8a;
-  --azul2:#1e40af;
-  --cinza:#f1f5f9;
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial;background:var(--cinza)}
-header{
-  height:60px;background:var(--azul);color:#fff;
-  display:flex;align-items:center;padding:0 20px;
-  position:fixed;width:100%;top:0;z-index:10;
-}
-aside{
-  position:fixed;top:60px;left:0;width:220px;
-  height:calc(100vh - 60px);background:var(--azul2);
-  color:#fff;padding:15px;display:none;
-}
-aside a{display:block;color:#fff;padding:10px;text-decoration:none;border-radius:6px}
+body{margin:0;font-family:Arial;background:#f1f5f9}
+header{height:60px;background:#1e3a8a;color:#fff;display:flex;align-items:center;padding:0 20px;position:fixed;width:100%;top:0}
+aside{position:fixed;top:60px;left:0;width:220px;height:calc(100vh - 60px);background:#1e40af;color:#fff;padding:15px;display:none}
+aside a{display:block;padding:10px;border-radius:6px;cursor:pointer}
 aside a:hover{background:rgba(255,255,255,.15)}
 main{margin-left:220px;margin-top:60px;padding:20px}
 section{display:none}
-.card{background:#fff;padding:20px;border-radius:8px;max-width:900px}
+.card{background:#fff;padding:20px;border-radius:8px;max-width:1000px}
 input,select,button{width:100%;padding:8px;margin:6px 0}
-button{background:var(--azul);color:#fff;border:none;border-radius:6px;cursor:pointer}
+button{background:#1e3a8a;color:#fff;border:none;border-radius:6px;cursor:pointer}
 button:hover{opacity:.9}
-#login{display:flex;align-items:center;justify-content:center;height:100vh}
+.lista p{cursor:pointer;padding:6px;border-bottom:1px solid #eee}
+.filtros{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:6px}
 </style>
 </head>
 
@@ -43,15 +36,18 @@ button:hover{opacity:.9}
 <header><strong>SISTEMA ESCOLAR WEB</strong></header>
 
 <aside id="menu">
+  <a onclick="mostrar('dashboard')">📊 Dashboard</a>
   <a onclick="mostrar('listaAlunos')">📁 Alunos</a>
-  <a onclick="novoAluno()">➕ Novo aluno</a>
+  <a id="menuNovo" onclick="novoAluno()">➕ Novo aluno</a>
+  <a id="menuUsuarios" onclick="mostrar('usuariosAdmin')">👥 Usuários</a>
   <a onclick="logout()">🚪 Sair</a>
 </aside>
 
 <main>
 
+<!-- LOGIN -->
 <section id="login" style="display:block">
-  <div class="card" style="max-width:400px">
+  <div class="card" style="max-width:400px;margin:auto">
     <h3>Login</h3>
     <input id="email" placeholder="E-mail">
     <input id="senha" type="password" placeholder="Senha">
@@ -59,79 +55,62 @@ button:hover{opacity:.9}
   </div>
 </section>
 
-<section id="listaAlunos">
+<!-- DASHBOARD -->
+<section id="dashboard">
   <div class="card">
-    <h3>📁 Alunos A–Z</h3>
-    <div id="lista"></div>
+    <h3>📊 Dashboard</h3>
+    <canvas id="grafSerie"></canvas>
   </div>
 </section>
 
-<section id="fichaAluno">
+<!-- LISTA -->
+<section id="listaAlunos">
   <div class="card">
-    <h3>📄 Ficha do Aluno</h3>
+    <h3>📁 Alunos A–Z</h3>
+    <div class="filtros">
+      <input id="busca" placeholder="Buscar nome/matrícula" oninput="filtrar()">
+      <input id="fSerie" placeholder="Série" oninput="filtrar()">
+      <input id="fTurma" placeholder="Turma" oninput="filtrar()">
+      <input id="fTurno" placeholder="Turno" oninput="filtrar()">
+    </div>
+    <div id="lista" class="lista"></div>
+  </div>
+</section>
 
+<!-- FICHA -->
+<section id="fichaAluno">
+  <div class="card" id="fichaPDF">
+    <h3>📄 Ficha do Aluno</h3>
     <input id="fa_matricula" placeholder="Matrícula">
-    <input id="fa_nome" placeholder="Nome completo">
+    <input id="fa_nome" placeholder="Nome">
     <input id="fa_nascimento" type="date">
-    <input id="fa_sexo" placeholder="Sexo">
-    <input id="fa_mae" placeholder="Nome da mãe">
-    <input id="fa_pai" placeholder="Nome do pai">
-    <input id="fa_rg" placeholder="RG">
-    <input id="fa_cpf" placeholder="CPF">
-    <input id="fa_endereco" placeholder="Endereço">
-    <input id="fa_cidade" placeholder="Cidade">
     <input id="fa_serie" placeholder="Série">
     <input id="fa_turma" placeholder="Turma">
     <input id="fa_turno" placeholder="Turno">
-    <input id="fa_ano" placeholder="Ano letivo">
-
-    <button onclick="salvarFichaAluno()">💾 Salvar</button>
-    <button onclick="mostrar('documentosAluno'); listarDocumentos()">📤 Documentos</button>
-    <button onclick="mostrar('historicoAluno')">📘 Histórico</button>
+    <button onclick="salvarAluno()">💾 Salvar</button>
+    <button onclick="gerarPDF()">📄 PDF</button>
     <button onclick="mostrar('listaAlunos')">⬅ Voltar</button>
   </div>
 </section>
 
-<section id="documentosAluno">
+<!-- USUÁRIOS -->
+<section id="usuariosAdmin">
   <div class="card">
-    <h3>📤 Documentos</h3>
-    <select id="tipoDocumento">
-      <option value="rg">RG</option>
-      <option value="cpf">CPF</option>
-      <option value="historico">Histórico</option>
-      <option value="residencia">Residência</option>
-      <option value="vacinacao">Vacinação</option>
-    </select>
-    <input type="file" id="arquivoDocumento">
-    <button onclick="uploadDocumento()">Enviar</button>
-    <ul id="listaDocumentos"></ul>
-    <button onclick="mostrar('fichaAluno')">⬅ Voltar</button>
-  </div>
-</section>
-
-<section id="historicoAluno">
-  <div class="card">
-    <h3>📘 Histórico Escolar</h3>
-    <input id="he_ano" placeholder="Ano letivo">
-    <input id="he_escola" placeholder="Escola">
-    <input id="he_serie" placeholder="Série">
-    <input id="he_situacao" placeholder="Situação">
-    <input id="he_obs" placeholder="Observações">
-    <button onclick="salvarHistorico()">Salvar histórico</button>
-    <ul id="listaHistorico"></ul>
-    <button onclick="mostrar('fichaAluno')">⬅ Voltar</button>
+    <h3>👥 Usuários</h3>
+    <div id="listaUsuarios"></div>
   </div>
 </section>
 
 </main>
 
 <script>
+/* CONFIG */
 const supabaseClient = supabase.createClient(
-  "https://favcrovzeihwwrjltlzj.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdmNyb3Z6ZWlod3dyamx0bHpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MzYwMjMsImV4cCI6MjA4MTUxMjAyM30.1PpWyZSBBItxNPXP0WyeyZJuILH7SnU7xiMOH9UPXMo"
+  "SUA_SUPABASE_URL",
+  "SUA_ANON_PUBLIC_KEY"
 );
 
-let alunoAtualId = null;
+let perfil="", escola_id="", alunosCache=[], alunoAtual=null;
 
 /* TELAS */
 function mostrar(id){
@@ -141,14 +120,24 @@ function mostrar(id){
 
 /* LOGIN */
 async function login(){
-  const { error } = await supabaseClient.auth.signInWithPassword({
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
     email: email.value,
     password: senha.value
   });
   if(error) return alert(error.message);
+
+  const { data:usuario } = await supabaseClient
+    .from("usuarios").select("*").eq("id",data.user.id).single();
+
+  perfil = usuario.perfil;
+  escola_id = usuario.escola_id;
+
+  if(perfil!=="admin") document.getElementById("menuUsuarios").style.display="none";
+  if(perfil==="professor") document.getElementById("menuNovo").style.display="none";
+
   menu.style.display="block";
-  mostrar("listaAlunos");
-  carregarAlunos();
+  mostrar("dashboard");
+  carregarDashboard();
 }
 
 /* LOGOUT */
@@ -157,113 +146,86 @@ async function logout(){
   location.reload();
 }
 
+/* DASHBOARD */
+async function carregarDashboard(){
+  const { data } = await supabaseClient
+    .from("alunos").select("serie").eq("escola_id",escola_id);
+
+  const map={};
+  data.forEach(a=>map[a.serie]=(map[a.serie]||0)+1);
+
+  new Chart(grafSerie,{
+    type:"bar",
+    data:{labels:Object.keys(map),datasets:[{data:Object.values(map)}]}
+  });
+}
+
 /* ALUNOS */
 async function carregarAlunos(){
-  const { data, error } = await supabaseClient
-    .from("alunos")
-    .select("*")
-    .order("nome");
+  const { data } = await supabaseClient
+    .from("alunos").select("*").eq("escola_id",escola_id).order("nome");
+  alunosCache=data;
+  render(data);
+}
 
-  if(error) return alert(error.message);
-
-  lista.innerHTML = data.map(a =>
-    `<p onclick='abrirFicha(${JSON.stringify(a)})'>📁 ${a.nome}</p>`
+function render(lista){
+  lista.innerHTML = lista.map(a =>
+    `<p onclick='abrir(${JSON.stringify(a)})'>📁 ${a.nome}</p>`
   ).join("");
 }
 
+function filtrar(){
+  render(alunosCache.filter(a =>
+    (!busca.value || a.nome.toLowerCase().includes(busca.value.toLowerCase()))
+  ));
+}
+
 function novoAluno(){
-  alunoAtualId = null;
+  alunoAtual=null;
   document.querySelectorAll("#fichaAluno input").forEach(i=>i.value="");
   mostrar("fichaAluno");
 }
 
-function abrirFicha(a){
-  alunoAtualId = a.id;
-  fa_matricula.value=a.matricula||"";
-  fa_nome.value=a.nome||"";
-  fa_nascimento.value=a.data_nascimento||"";
-  fa_sexo.value=a.sexo||"";
-  fa_mae.value=a.nome_mae||"";
-  fa_pai.value=a.nome_pai||"";
-  fa_rg.value=a.rg||"";
-  fa_cpf.value=a.cpf||"";
-  fa_endereco.value=a.endereco||"";
-  fa_cidade.value=a.cidade||"";
-  fa_serie.value=a.serie||"";
-  fa_turma.value=a.turma||"";
-  fa_turno.value=a.turno||"";
-  fa_ano.value=a.ano_letivo||"";
+function abrir(a){
+  alunoAtual=a.id;
+  fa_nome.value=a.nome;
+  fa_matricula.value=a.matricula;
+  fa_serie.value=a.serie;
+  fa_turma.value=a.turma;
+  fa_turno.value=a.turno;
   mostrar("fichaAluno");
 }
 
-async function salvarFichaAluno(){
-  const dados = {
-    matricula: fa_matricula.value,
-    nome: fa_nome.value,
-    data_nascimento: fa_nascimento.value,
-    sexo: fa_sexo.value,
-    nome_mae: fa_mae.value,
-    nome_pai: fa_pai.value,
-    rg: fa_rg.value,
-    cpf: fa_cpf.value,
-    endereco: fa_endereco.value,
-    cidade: fa_cidade.value,
-    serie: fa_serie.value,
-    turma: fa_turma.value,
-    turno: fa_turno.value,
-    ano_letivo: fa_ano.value
+async function salvarAluno(){
+  const dados={
+    nome:fa_nome.value,
+    matricula:fa_matricula.value,
+    serie:fa_serie.value,
+    turma:fa_turma.value,
+    turno:fa_turno.value,
+    escola_id
   };
 
-  const { error } = alunoAtualId
-    ? await supabaseClient.from("alunos").update(dados).eq("id", alunoAtualId)
-    : await supabaseClient.from("alunos").insert([dados]);
+  alunoAtual
+    ? await supabaseClient.from("alunos").update(dados).eq("id",alunoAtual)
+    : await supabaseClient.from("alunos").insert(dados);
 
-  if(error) return alert(error.message);
-
-  alert("Aluno salvo com sucesso");
+  alert("Salvo");
   mostrar("listaAlunos");
   carregarAlunos();
 }
 
-/* DOCUMENTOS */
-async function uploadDocumento(){
-  if(!alunoAtualId) return alert("Salve o aluno primeiro");
-  const file = arquivoDocumento.files[0];
-  if(!file) return alert("Selecione um arquivo");
-
-  const path = `${alunoAtualId}/${tipoDocumento.value}_${file.name}`;
-  const { error } = await supabaseClient
-    .storage.from("documentos-alunos")
-    .upload(path, file, { upsert:true });
-
-  if(error) return alert(error.message);
-  listarDocumentos();
+/* PDF */
+function gerarPDF(){
+  html2pdf().from(document.getElementById("fichaPDF")).save("ficha-aluno.pdf");
 }
 
-async function listarDocumentos(){
-  if(!alunoAtualId) return;
-  const { data } = await supabaseClient
-    .storage.from("documentos-alunos")
-    .list(String(alunoAtualId));
-
-  listaDocumentos.innerHTML = data.map(d=>`<li>${d.name}</li>`).join("");
-}
-
-/* HISTÓRICO */
-async function salvarHistorico(){
-  const { error } = await supabaseClient.from("historico_escolar").insert({
-    aluno_id: alunoAtualId,
-    ano: he_ano.value,
-    escola: he_escola.value,
-    serie: he_serie.value,
-    situacao: he_situacao.value,
-    observacoes: he_obs.value
-  });
-  if(error) return alert(error.message);
-  alert("Histórico salvo");
+/* USUÁRIOS */
+async function listarUsuarios(){
+  const { data } = await supabaseClient.from("usuarios").select("*");
+  listaUsuarios.innerHTML=data.map(u=>`<p>${u.nome} (${u.perfil})</p>`).join("");
 }
 </script>
 
 </body>
 </html>
-
