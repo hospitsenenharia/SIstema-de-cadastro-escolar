@@ -220,48 +220,60 @@ function novoAluno(){
 }
 
 function abrir(a){
-  alunoAtual=a.id;
-  fa_matricula.value=a.matricula||"";
-  fa_nome.value=a.nome||"";
-  fa_nascimento.value=a.data_nascimento||"";
-  fa_sexo.value=a.sexo||"";
-  fa_mae.value=a.nome_mae||"";
-  fa_pai.value=a.nome_pai||"";
-  fa_rg.value=a.rg||"";
-  fa_cpf.value=a.cpf||"";
-  fa_endereco.value=a.endereco||"";
-  fa_cidade.value=a.cidade||"";
-  fa_serie.value=a.serie||"";
-  fa_turma.value=a.turma||"";
-  fa_turno.value=a.turno||"";
-  fa_ano.value=a.ano_letivo||"";
+  alunoAtual = a.id;
+
+  fa_matricula.value = a.matricula || "";
+  fa_nome.value = a.nome || "";
+  fa_nascimento.value = a.data_nascimento || "";
+  fa_sexo.value = a.sexo || "";
+  fa_mae.value = a.nome_mae || "";
+  fa_pai.value = a.nome_pai || "";
+  fa_rg.value = a.rg || "";
+  fa_cpf.value = a.cpf || "";
+  fa_endereco.value = a.endereco || "";
+  fa_cidade.value = a.cidade || "";
+  fa_serie.value = a.serie || "";
+  fa_turma.value = a.turma || "";
+  fa_turno.value = a.turno || "";
+  fa_ano.value = a.ano_letivo || "";
+
   mostrar("fichaAluno");
 }
 
+
 async function salvarAluno(){
-  const dados={
-    matricula:fa_matricula.value,
-    nome:fa_nome.value,
-    data_nascimento:fa_nascimento.value,
-    sexo:fa_sexo.value,
-    nome_mae:fa_mae.value,
-    nome_pai:fa_pai.value,
-    rg:fa_rg.value,
-    cpf:fa_cpf.value,
-    endereco:fa_endereco.value,
-    cidade:fa_cidade.value,
-    serie:fa_serie.value,
-    turma:fa_turma.value,
-    turno:fa_turno.value,
-    ano_letivo:fa_ano.value
+  const dados = {
+    matricula: fa_matricula.value,
+    nome: fa_nome.value,
+    data_nascimento: fa_nascimento.value,
+    sexo: fa_sexo.value,
+    nome_mae: fa_mae.value,
+    nome_pai: fa_pai.value,
+    rg: fa_rg.value,
+    cpf: fa_cpf.value,
+    endereco: fa_endereco.value,
+    cidade: fa_cidade.value,
+    serie: fa_serie.value,
+    turma: fa_turma.value,
+    turno: fa_turno.value,
+    ano_letivo: fa_ano.value,
+    situacao: "ATIVO"
   };
-  alunoAtual
-    ? await supabaseClient.from("alunos").update(dados).eq("id",alunoAtual)
+
+  const { error } = alunoAtual
+    ? await supabaseClient.from("alunos").update(dados).eq("id", alunoAtual)
     : await supabaseClient.from("alunos").insert(dados);
-  alert("Salvo");
+
+  if(error){
+    alert("Erro ao salvar: " + error.message);
+    return;
+  }
+
+  alert("Aluno salvo com sucesso");
   mostrar("listaAlunos");
   carregarAlunos();
 }
+
 
 async function excluirAluno(id){
   if(!confirm("Excluir aluno?")) return;
@@ -342,4 +354,5 @@ function exportarXML(){
 
 </body>
 </html>
+
 
