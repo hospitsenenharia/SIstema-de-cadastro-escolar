@@ -75,17 +75,29 @@ button:hover{opacity:.9}
 <section id="fichaAluno">
   <div class="card" id="fichaPDF">
     <h3>📄 Ficha do Aluno</h3>
+
     <input id="fa_matricula" placeholder="Matrícula">
     <input id="fa_nome" placeholder="Nome completo">
+    <input id="fa_nascimento" type="date">
+    <input id="fa_sexo" placeholder="Sexo">
+    <input id="fa_mae" placeholder="Nome da mãe">
+    <input id="fa_pai" placeholder="Nome do pai">
+    <input id="fa_rg" placeholder="RG">
+    <input id="fa_cpf" placeholder="CPF">
+    <input id="fa_endereco" placeholder="Endereço">
+    <input id="fa_cidade" placeholder="Cidade">
     <input id="fa_serie" placeholder="Série">
     <input id="fa_turma" placeholder="Turma">
     <input id="fa_turno" placeholder="Turno">
+    <input id="fa_ano" placeholder="Ano letivo">
+
     <button onclick="salvarAluno()">💾 Salvar</button>
     <button onclick="gerarFichaPDF()">📄 PDF</button>
     <button onclick="mostrar('boletimAluno'); carregarBoletim()">📘 Boletim</button>
     <button onclick="mostrar('listaAlunos')">⬅ Voltar</button>
   </div>
 </section>
+
 
 <!-- BOLETIM -->
 <section id="boletimAluno">
@@ -117,7 +129,7 @@ const supabaseClient = supabase.createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdmNyb3Z6ZWlod3dyamx0bHpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MzYwMjMsImV4cCI6MjA4MTUxMjAyM30.1PpWyZSBBItxNPXP0WyeyZJuILH7SnU7xiMOH9UPXMo"
 );
 
-let alunos=[], alunoAtual=null;
+let alunos = [], alunoAtual = null;
 
 /* TELAS */
 function mostrar(id){
@@ -132,6 +144,7 @@ async function login(){
     password: senha.value
   });
   if(error) return alert(error.message);
+
   menu.style.display="block";
   mostrar("dashboard");
   carregarDashboard();
@@ -147,28 +160,40 @@ async function logout(){
 /* DASHBOARD */
 async function carregarDashboard(){
   const { data } = await supabaseClient.from("alunos").select("serie");
-  const map={};
-  data.forEach(a=>map[a.serie]=(map[a.serie]||0)+1);
+  const map = {};
+  data.forEach(a => map[a.serie] = (map[a.serie] || 0) + 1);
+
   new Chart(grafico,{
     type:"bar",
-    data:{labels:Object.keys(map),datasets:[{label:"Alunos",data:Object.values(map)}]}
+    data:{
+      labels:Object.keys(map),
+      datasets:[{label:"Alunos",data:Object.values(map)}]
+    }
   });
 }
 
 /* ALUNOS */
 async function carregarAlunos(){
   const { data } = await supabaseClient.from("alunos").select("*").order("nome");
-  alunos=data||[];
+  alunos = data || [];
   render(alunos);
 }
 
 function render(lista){
   listaAlunos.querySelector("#lista").innerHTML =
-    lista.map(a=>`<p onclick='abrir(${JSON.stringify(a)})'>${a.nome} (${a.matricula})</p>`).join("");
+    lista.map(a => `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="cursor:pointer" onclick='abrir(${JSON.stringify(a)})'>
+          📁 ${a.nome} (${a.matricula})
+        </span>
+        <button style="width:auto;background:#dc2626"
+          onclick="excluirAluno('${a.id}')">🗑️</button>
+      </div>
+    `).join("");
 }
 
 function filtrar(){
-  const t=busca.value.toLowerCase();
+  const t = busca.value.toLowerCase();
   render(alunos.filter(a =>
     a.nome.toLowerCase().includes(t) ||
     a.matricula.toLowerCase().includes(t)
@@ -176,81 +201,96 @@ function filtrar(){
 }
 
 function novoAluno(){
-  alunoAtual=null;
+  alunoAtual = null;
   document.querySelectorAll("#fichaAluno input").forEach(i=>i.value="");
   mostrar("fichaAluno");
 }
 
 function abrir(a){
-  alunoAtual=a.id;
-  fa_nome.value=a.nome;
-  fa_matricula.value=a.matricula;
-  fa_serie.value=a.serie;
-  fa_turma.value=a.turma;
-  fa_turno.value=a.turno;
+  alunoAtual = a.id;
+  fa_matricula.value = a.matricula || "";
+  fa_nome.value = a.nome || "";
+  fa_nascimento.value = a.data_nascimento || "";
+  fa_sexo.value = a.sexo || "";
+  fa_mae.value = a.nome_mae || "";
+  fa_pai.value = a.nome_pai || "";
+  fa_rg.value = a.rg || "";
+  fa_cpf.value = a.cpf || "";
+  fa_endereco.value = a.endereco || "";
+  fa_cidade.value = a.cidade || "";
+  fa_serie.value = a.serie || "";
+  fa_turma.value = a.turma || "";
+  fa_turno.value = a.turno || "";
+  fa_ano.value = a.ano_letivo || "";
   mostrar("fichaAluno");
 }
 
 async function salvarAluno(){
-  const dados={
-    nome:fa_nome.value,
-    matricula:fa_matricula.value,
-    serie:fa_serie.value,
-    turma:fa_turma.value,
-    turno:fa_turno.value
+  const dados = {
+    matricula: fa_matricula.value,
+    nome: fa_nome.value,
+    data_nascimento: fa_nascimento.value,
+    sexo: fa_sexo.value,
+    nome_mae: fa_mae.value,
+    nome_pai: fa_pai.value,
+    rg: fa_rg.value,
+    cpf: fa_cpf.value,
+    endereco: fa_endereco.value,
+    cidade: fa_cidade.value,
+    serie: fa_serie.value,
+    turma: fa_turma.value,
+    turno: fa_turno.value,
+    ano_letivo: fa_ano.value
   };
+
   alunoAtual
-    ? await supabaseClient.from("alunos").update(dados).eq("id",alunoAtual)
+    ? await supabaseClient.from("alunos").update(dados).eq("id", alunoAtual)
     : await supabaseClient.from("alunos").insert(dados);
-  alert("Aluno salvo");
+
+  alert("Aluno salvo com sucesso");
   mostrar("listaAlunos");
   carregarAlunos();
 }
 
-/* PDF FICHA */
+/* EXCLUIR */
+async function excluirAluno(id){
+  if(!confirm("Tem certeza que deseja excluir este aluno?")) return;
+
+  const { error } = await supabaseClient
+    .from("alunos")
+    .delete()
+    .eq("id", id);
+
+  if(error) return alert(error.message);
+  alert("Aluno excluído");
+  carregarAlunos();
+}
+
+/* PDF */
 function gerarFichaPDF(){
   html2pdf().from(document.getElementById("fichaPDF")).save("ficha-aluno.pdf");
 }
 
-/* BOLETIM */
-async function salvarNota(){
-  await supabaseClient.from("boletins").insert({
-    aluno_id: alunoAtual,
-    disciplina: disciplina.value,
-    nota: nota.value
-  });
-  disciplina.value=""; nota.value="";
-  carregarBoletim();
-}
-
-async function carregarBoletim(){
-  const { data } = await supabaseClient.from("boletins").select("*").eq("aluno_id",alunoAtual);
-  let soma=0;
-  listaNotas.innerHTML=data.map(n=>{
-    soma+=Number(n.nota);
-    return `<p>${n.disciplina}: ${n.nota}</p>`;
-  }).join("");
-  media.innerText=(soma/data.length||0).toFixed(2);
-}
-
-function gerarBoletimPDF(){
-  html2pdf().from(document.getElementById("boletimPDF")).save("boletim.pdf");
-}
-
+/* XML */
 function exportarXML(){
-  let xml=`<boletim>`;
+  let xml = `<boletim>`;
   document.querySelectorAll("#listaNotas p").forEach(p=>{
-    xml+=`<nota>${p.innerText}</nota>`;
+    xml += `<nota>${p.innerText}</nota>`;
   });
-  xml+=`<media>${media.innerText}</media></boletim>`;
+  xml += `<media>${media.innerText}</media></boletim>`;
 
-  const blob=new Blob([xml],{type:"application/xml"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="boletim.xml";
+  const blob = new Blob([xml], { type:"application/xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "boletim.xml";
   a.click();
 }
 </script>
 
 </body>
 </html>
+
+
+
+
+
