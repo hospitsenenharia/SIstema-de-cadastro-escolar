@@ -27,6 +27,7 @@ input,button{width:100%;padding:8px;margin:6px 0}
 button{background:#1e3a8a;color:#fff;border:none;border-radius:6px;cursor:pointer}
 button:hover{opacity:.9}
 .lista p{cursor:pointer;padding:6px;border-bottom:1px solid #eee}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:10px}
 </style>
 </head>
 
@@ -64,7 +65,7 @@ button:hover{opacity:.9}
 <!-- LISTA -->
 <section id="listaAlunos">
   <div class="card">
-    <h3>📁 Alunos A–Z</h3>
+    <h3>📁 Alunos</h3>
     <input id="busca" placeholder="Buscar por nome ou matrícula" oninput="filtrar()">
     <div id="lista" class="lista"></div>
   </div>
@@ -75,13 +76,13 @@ button:hover{opacity:.9}
   <div class="card" id="fichaPDF">
     <h3>📄 Ficha do Aluno</h3>
     <input id="fa_matricula" placeholder="Matrícula">
-    <input id="fa_nome" placeholder="Nome">
+    <input id="fa_nome" placeholder="Nome completo">
     <input id="fa_serie" placeholder="Série">
     <input id="fa_turma" placeholder="Turma">
     <input id="fa_turno" placeholder="Turno">
     <button onclick="salvarAluno()">💾 Salvar</button>
-    <button onclick="gerarPDF()">📄 PDF</button>
-    <button onclick="mostrar('boletimAluno')">📘 Boletim</button>
+    <button onclick="gerarFichaPDF()">📄 PDF</button>
+    <button onclick="mostrar('boletimAluno'); carregarBoletim()">📘 Boletim</button>
     <button onclick="mostrar('listaAlunos')">⬅ Voltar</button>
   </div>
 </section>
@@ -90,11 +91,20 @@ button:hover{opacity:.9}
 <section id="boletimAluno">
   <div class="card" id="boletimPDF">
     <h3>📘 Boletim</h3>
-    <input id="disciplina" placeholder="Disciplina">
-    <input id="nota" placeholder="Nota">
-    <button onclick="salvarNota()">Salvar nota</button>
+
+    <div class="grid">
+      <input id="disciplina" placeholder="Disciplina">
+      <input id="nota" placeholder="Nota">
+    </div>
+
+    <button onclick="salvarNota()">Adicionar nota</button>
+
     <div id="listaNotas"></div>
+    <h4>Média: <span id="media"></span></h4>
+
     <button onclick="gerarBoletimPDF()">📄 PDF</button>
+    <button onclick="exportarXML()">📄 XML</button>
+    <button onclick="window.print()">🖨️ Imprimir</button>
     <button onclick="mostrar('fichaAluno')">⬅ Voltar</button>
   </div>
 </section>
@@ -137,11 +147,11 @@ async function logout(){
 /* DASHBOARD */
 async function carregarDashboard(){
   const { data } = await supabaseClient.from("alunos").select("serie");
-  const mapa={};
-  data.forEach(a=>mapa[a.serie]=(mapa[a.serie]||0)+1);
+  const map={};
+  data.forEach(a=>map[a.serie]=(map[a.serie]||0)+1);
   new Chart(grafico,{
     type:"bar",
-    data:{labels:Object.keys(mapa),datasets:[{label:"Alunos",data:Object.values(mapa)}]}
+    data:{labels:Object.keys(map),datasets:[{label:"Alunos",data:Object.values(map)}]}
   });
 }
 
@@ -154,12 +164,15 @@ async function carregarAlunos(){
 
 function render(lista){
   listaAlunos.querySelector("#lista").innerHTML =
-    lista.map(a=>`<p onclick='abrir(${JSON.stringify(a)})'>${a.nome}</p>`).join("");
+    lista.map(a=>`<p onclick='abrir(${JSON.stringify(a)})'>${a.nome} (${a.matricula})</p>`).join("");
 }
 
 function filtrar(){
   const t=busca.value.toLowerCase();
-  render(alunos.filter(a=>a.nome.toLowerCase().includes(t)||a.matricula.toLowerCase().includes(t)));
+  render(alunos.filter(a =>
+    a.nome.toLowerCase().includes(t) ||
+    a.matricula.toLowerCase().includes(t)
+  ));
 }
 
 function novoAluno(){
@@ -189,14 +202,14 @@ async function salvarAluno(){
   alunoAtual
     ? await supabaseClient.from("alunos").update(dados).eq("id",alunoAtual)
     : await supabaseClient.from("alunos").insert(dados);
-  alert("Salvo");
+  alert("Aluno salvo");
   mostrar("listaAlunos");
   carregarAlunos();
 }
 
-/* PDF */
-function gerarPDF(){
-  html2pdf().from(document.getElementById("fichaPDF")).save("ficha.pdf");
+/* PDF FICHA */
+function gerarFichaPDF(){
+  html2pdf().from(document.getElementById("fichaPDF")).save("ficha-aluno.pdf");
 }
 
 /* BOLETIM */
@@ -206,16 +219,36 @@ async function salvarNota(){
     disciplina: disciplina.value,
     nota: nota.value
   });
-  carregarNotas();
+  disciplina.value=""; nota.value="";
+  carregarBoletim();
 }
 
-async function carregarNotas(){
+async function carregarBoletim(){
   const { data } = await supabaseClient.from("boletins").select("*").eq("aluno_id",alunoAtual);
-  listaNotas.innerHTML=data.map(n=>`<p>${n.disciplina}: ${n.nota}</p>`).join("");
+  let soma=0;
+  listaNotas.innerHTML=data.map(n=>{
+    soma+=Number(n.nota);
+    return `<p>${n.disciplina}: ${n.nota}</p>`;
+  }).join("");
+  media.innerText=(soma/data.length||0).toFixed(2);
 }
 
 function gerarBoletimPDF(){
   html2pdf().from(document.getElementById("boletimPDF")).save("boletim.pdf");
+}
+
+function exportarXML(){
+  let xml=`<boletim>`;
+  document.querySelectorAll("#listaNotas p").forEach(p=>{
+    xml+=`<nota>${p.innerText}</nota>`;
+  });
+  xml+=`<media>${media.innerText}</media></boletim>`;
+
+  const blob=new Blob([xml],{type:"application/xml"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="boletim.xml";
+  a.click();
 }
 </script>
 
