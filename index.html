@@ -26,8 +26,7 @@ section{display:none}
 input,select,button,textarea{width:100%;padding:8px;margin:6px 0}
 button{background:#1e3a8a;color:#fff;border:none;border-radius:6px;cursor:pointer}
 button:hover{opacity:.9}
-.lista div{border-bottom:1px solid #eee;padding:6px}
-.grid{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+.lista div{display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:6px}
 small{color:#555}
 </style>
 </head>
@@ -96,7 +95,7 @@ small{color:#555}
     <button onclick="gerarFichaPDF()">📄 PDF</button>
     <button onclick="mostrar('documentosAluno'); listarDocumentos()">📁 Documentos</button>
     <button onclick="mostrar('historicoAluno'); listarHistorico()">📘 Histórico</button>
-    <button onclick="mostrar('boletimAluno'); carregarBoletim()">📄 Boletim</button>
+    <button onclick="mostrar('boletimAluno'); carregarBoletim()">🧾 Boletim</button>
     <button onclick="mostrar('listaAlunos')">⬅ Voltar</button>
   </div>
 </section>
@@ -106,10 +105,10 @@ small{color:#555}
   <div class="card">
     <h3>📁 Documentos</h3>
     <select id="doc_tipo">
-      <option value="RG">RG</option>
-      <option value="CPF">CPF</option>
-      <option value="Histórico">Histórico</option>
-      <option value="Comprovante">Comprovante</option>
+      <option>RG</option>
+      <option>CPF</option>
+      <option>Histórico</option>
+      <option>Comprovante</option>
     </select>
     <input type="file" id="doc_arquivo">
     <button onclick="uploadDocumento()">Enviar</button>
@@ -136,7 +135,7 @@ small{color:#555}
 <!-- BOLETIM -->
 <section id="boletimAluno">
   <div class="card" id="boletimPDF">
-    <h3>📄 Boletim</h3>
+    <h3>🧾 Boletim</h3>
     <input id="disciplina" placeholder="Disciplina">
     <input id="nota" placeholder="Nota">
     <button onclick="salvarNota()">Adicionar</button>
@@ -152,10 +151,9 @@ small{color:#555}
 </main>
 
 <script>
-/* CONFIG */
 const supabaseClient = supabase.createClient(
   "https://favcrovzeihwwrjltlzj.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhdmNyb3Z6ZWlod3dyamx0bHpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MzYwMjMsImV4cCI6MjA4MTUxMjAyM30.1PpWyZSBBItxNPXP0WyeyZJuILH7SnU7xiMOH9UPXMo"
+  "SUA_ANON_KEY_AQUI"
 );
 
 let alunos=[], alunoAtual=null;
@@ -179,12 +177,6 @@ async function login(){
   carregarAlunos();
 }
 
-/* LOGOUT */
-async function logout(){
-  await supabaseClient.auth.signOut();
-  location.reload();
-}
-
 /* DASHBOARD */
 async function carregarDashboard(){
   const { data } = await supabaseClient.from("alunos").select("serie");
@@ -193,7 +185,7 @@ async function carregarDashboard(){
   new Chart(grafico,{type:"bar",data:{labels:Object.keys(map),datasets:[{data:Object.values(map)}]}});
 }
 
-/* ALUNOS */
+/* LISTA */
 async function carregarAlunos(){
   const { data } = await supabaseClient.from("alunos").select("*").order("nome");
   alunos=data||[];
@@ -201,10 +193,10 @@ async function carregarAlunos(){
 }
 
 function render(lista){
-  lista.innerHTML = lista.map(a=>`
+  lista.innerHTML=lista.map(a=>`
     <div>
       <span onclick='abrir(${JSON.stringify(a)})'>📁 ${a.nome} (${a.matricula})</span>
-      <button style="background:#dc2626;width:auto" onclick="excluirAluno('${a.id}')">🗑️</button>
+      <button onclick="excluirAluno('${a.id}')" style="background:#dc2626;width:auto">🗑️</button>
     </div>`).join("");
 }
 
@@ -213,68 +205,43 @@ function filtrar(){
   render(alunos.filter(a=>a.nome.toLowerCase().includes(t)||a.matricula.toLowerCase().includes(t)));
 }
 
-function novoAluno(){
-  alunoAtual=null;
-  document.querySelectorAll("#fichaAluno input").forEach(i=>i.value="");
-  mostrar("fichaAluno");
-}
-
 function abrir(a){
-  alunoAtual = a.id;
-
-  fa_matricula.value = a.matricula || "";
-  fa_nome.value = a.nome || "";
-  fa_nascimento.value = a.data_nascimento || "";
-  fa_sexo.value = a.sexo || "";
-  fa_mae.value = a.nome_mae || "";
-  fa_pai.value = a.nome_pai || "";
-  fa_rg.value = a.rg || "";
-  fa_cpf.value = a.cpf || "";
-  fa_endereco.value = a.endereco || "";
-  fa_cidade.value = a.cidade || "";
-  fa_serie.value = a.serie || "";
-  fa_turma.value = a.turma || "";
-  fa_turno.value = a.turno || "";
-  fa_ano.value = a.ano_letivo || "";
-
+  alunoAtual=a.id;
+  Object.keys(a).forEach(k=>{
+    const el=document.getElementById("fa_"+k);
+    if(el) el.value=a[k]||"";
+  });
   mostrar("fichaAluno");
 }
 
-
+/* SALVAR */
 async function salvarAluno(){
-  const dados = {
-    matricula: fa_matricula.value,
-    nome: fa_nome.value,
-    data_nascimento: fa_nascimento.value,
-    sexo: fa_sexo.value,
-    nome_mae: fa_mae.value,
-    nome_pai: fa_pai.value,
-    rg: fa_rg.value,
-    cpf: fa_cpf.value,
-    endereco: fa_endereco.value,
-    cidade: fa_cidade.value,
-    serie: fa_serie.value,
-    turma: fa_turma.value,
-    turno: fa_turno.value,
-    ano_letivo: fa_ano.value,
-    situacao: "ATIVO"
+  const dados={
+    matricula:fa_matricula.value,
+    nome:fa_nome.value,
+    data_nascimento:fa_nascimento.value,
+    sexo:fa_sexo.value,
+    nome_mae:fa_mae.value,
+    nome_pai:fa_pai.value,
+    rg:fa_rg.value,
+    cpf:fa_cpf.value,
+    endereco:fa_endereco.value,
+    cidade:fa_cidade.value,
+    serie:fa_serie.value,
+    turma:fa_turma.value,
+    turno:fa_turno.value,
+    ano_letivo:fa_ano.value,
+    situacao:"ATIVO"
   };
-
-  const { error } = alunoAtual
-    ? await supabaseClient.from("alunos").update(dados).eq("id", alunoAtual)
+  alunoAtual
+    ? await supabaseClient.from("alunos").update(dados).eq("id",alunoAtual)
     : await supabaseClient.from("alunos").insert(dados);
-
-  if(error){
-    alert("Erro ao salvar: " + error.message);
-    return;
-  }
-
-  alert("Aluno salvo com sucesso");
+  alert("Aluno salvo");
   mostrar("listaAlunos");
   carregarAlunos();
 }
 
-
+/* EXCLUIR */
 async function excluirAluno(id){
   if(!confirm("Excluir aluno?")) return;
   await supabaseClient.from("alunos").delete().eq("id",id);
@@ -297,7 +264,7 @@ async function listarDocumentos(){
   const { data } = await supabaseClient.from("documentos_aluno").select("*").eq("aluno_id",alunoAtual);
   listaDocumentos.innerHTML=data.map(d=>`<li><a target="_blank"
   href="https://favcrovzeihwwrjltlzj.supabase.co/storage/v1/object/public/documentos-alunos/${d.caminho}">
-  ${d.tipo} - ${d.nome_arquivo}</a></li>`).join("");
+  ${d.tipo}</a></li>`).join("");
 }
 
 /* HISTÓRICO */
@@ -354,5 +321,3 @@ function exportarXML(){
 
 </body>
 </html>
-
-
